@@ -1,31 +1,36 @@
 function operazioni_log() {
+    # PREREQUISITI:
+    # - journalctl: per visualizzare i log di sistema
+    # - tail: per visualizzare i log dei pacchetti
+    if ! requisiti journalctl || ! requisiti tail; then
+        return
+    fi
+
     while true; do
         clear
         printlines "" \
             "$(con_grassetto "====================================")" \
             "$(con_grassetto "      VISUALIZZAZIONE LOG")" \
             "$(con_grassetto "====================================")" \
-            "" \
             "Scegli quale registro visualizzare:" \
-            "1) Log di sistema (/var/log/syslog)" \
-            "2) Log di accesso (/var/log/auth.log)" \
-            "3) Log del kernel (/var/log/kern.log)" \
-            "4) Log di sicurezza (/var/log/secure)" \
-            "5) Log di rete (/var/log/messages)" \
-            "6) Log dei pacchetti (/var/log/apt/history.log)" \
-            "7) Log delle applicazioni (/var/log/daemon.log)" \
+            "1) Log di sistema" \
+            "2) Log di accesso" \
+            "3) Log del kernel" \
+            "4) Log di rete" \
+            "5) Log dei pacchetti" \
+            "6) Log delle applicazioni" \
             "q) Back" \
             "$(con_grassetto "====================================")"
 
-        read -rp "Scegli [1-7,q]: " choice
+        read -rp "Seleziona un'opzione [1-6,q]: " choice
         case "$choice" in
         1 | visualizza_log_di_sistema)
             clear
             printlines "" \
                 "$(con_grassetto "====================================")" \
-                "$(con_grassetto "        VISUALIZZA LOG DI SISTEMA")" \
+                "$(con_grassetto "        LOG DI SISTEMA")" \
                 "$(con_grassetto "====================================")"
-            tail -n50 /var/log/syslog
+            journalctl -n 50 --no-pager
             sleep 1
             printlines "$(con_grassetto "====================================")"
             ;;
@@ -33,9 +38,10 @@ function operazioni_log() {
             clear
             printlines "" \
                 "$(con_grassetto "====================================")" \
-                "$(con_grassetto "        VISUALIZZA LOG DI ACCESSO")" \
+                "$(con_grassetto "        LOG DI ACCESSO")" \
                 "$(con_grassetto "====================================")"
-            tail -n50 /var/log/auth.log
+            # Mostra i log di accesso normali, ma anche quelli sudo ed ssh
+            journalctl _COMM=sudo _SYSTEMD_UNIT=sshd.service -n 100 --no-pager
             sleep 1
             printlines "$(con_grassetto "====================================")"
             ;;
@@ -43,49 +49,45 @@ function operazioni_log() {
             clear
             printlines "" \
                 "$(con_grassetto "====================================")" \
-                "$(con_grassetto "        VISUALIZZA LOG DEL KERNEL")" \
+                "$(con_grassetto "        LOG DEL KERNEL")" \
                 "$(con_grassetto "====================================")"
-            tail -n50 /var/log/kern.log
+            journalctl -k -n 50 --no-pager
             sleep 1
             printlines "$(con_grassetto "====================================")"
             ;;
-        4 | visualizza_log_di_sicurezza)
+        4 | visualizza_log_di_rete)
             clear
             printlines "" \
                 "$(con_grassetto "====================================")" \
-                "$(con_grassetto "        VISUALIZZA LOG DI SICUREZZA")" \
+                "$(con_grassetto "        LOG DI RETE")" \
                 "$(con_grassetto "====================================")"
-            tail -n50 /var/log/secure
+            # Se c'è NetworkManager (dovrebbe), usalo, altrimenti tenta con nerworkd
+            if journalctl -u NetworkManager &>/dev/null; then
+                journalctl -u NetworkManager -n 50 --no-pager
+            else
+                journalctl -u systemd-networkd -n 50 --no-pager
+            fi
             sleep 1
             printlines "$(con_grassetto "====================================")"
             ;;
-        5 | visualizza_log_di_rete)
+        5 | visualizza_log_dei_pacchetti)
             clear
             printlines "" \
                 "$(con_grassetto "====================================")" \
-                "$(con_grassetto "        VISUALIZZA LOG DI RETE")" \
+                "$(con_grassetto "        LOG DEI PACCHETTI")" \
                 "$(con_grassetto "====================================")"
-            tail -n50 /var/log/messages
+            tail -n50 /var/log/apt/history.log 2>/dev/null ||
+                echo "Log APT non disponibile."
             sleep 1
             printlines "$(con_grassetto "====================================")"
             ;;
-        6 | visualizza_log_dei_pacchetti)
+        6 | visualizza_log_dei_servizi)
             clear
             printlines "" \
                 "$(con_grassetto "====================================")" \
-                "$(con_grassetto "        VISUALIZZA LOG DEI PACCHETTI")" \
+                "$(con_grassetto "        LOG DELLE APPLICAZIONI (livello info)")" \
                 "$(con_grassetto "====================================")"
-            tail -n50 /var/log/apt/history.log
-            sleep 1
-            printlines "$(con_grassetto "====================================")"
-            ;;
-        7 | visualizza_log_dei_servizi)
-            clear
-            printlines "" \
-                "$(con_grassetto "====================================")" \
-                "$(con_grassetto "        VISUALIZZA LOG DELLE APPLICAZIONI")" \
-                "$(con_grassetto "====================================")"
-            tail -n50 /var/log/daemon.log
+            journalctl -p info -n 50 --no-pager
             sleep 1
             printlines "$(con_grassetto "====================================")"
             ;;
@@ -102,23 +104,30 @@ function operazioni_log() {
 }
 
 function operazioni_sessione() {
+    # PREREQUISITI:
+    # - systemctl: per gestire lo stato del sistema
+    # - loginctl: per gestire le sessioni utente
+    if ! requisiti systemctl || ! requisiti loginctl; then
+        return
+    fi
+
     while true; do
         clear
         printlines "" \
             "$(con_grassetto "====================================")" \
             "$(con_grassetto "      OPERAZIONI DI SESSIONE")" \
             "$(con_grassetto "====================================")" \
-            "1) Spegni (shutdown now)" \
-            "2) Riavvia (reboot)" \
-            "3) Sospendi (systemctl suspend)" \
-            "4) Iberna (systemctl hibernate)" \
-            "5) Sospendi e iberna (systemctl hybrid-sleep)" \
-            "6) Blocca sessione (loginctl lock-session)" \
-            "7) Disconnetti utente corrente (loginctl terminate-user \$USER)" \
+            "1) Spegni" \
+            "2) Riavvia" \
+            "3) Sospendi" \
+            "4) Iberna" \
+            "5) Sospendi e iberna" \
+            "6) Blocca sessione" \
+            "7) Disconnetti utente corrente" \
             "q) Back" \
             "$(con_grassetto "====================================")"
 
-        read -rp "Scegli [1-7,q]: " choice
+        read -rp "Seleziona un'opzione [1-7,q]: " choice
         case "$choice" in
         1 | spegni_sistema)
             clear
@@ -203,4 +212,3 @@ function operazioni_sessione() {
         read -rp "Premi INVIO per tornare indietro..."
     done
 }
-

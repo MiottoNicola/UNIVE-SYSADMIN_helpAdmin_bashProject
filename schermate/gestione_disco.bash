@@ -1,6 +1,14 @@
 function gestione_disco() {
-    while true; do
+    #PREREQUISITI:
+    # - fdisk: per gestire le partizioni
+    # - mkfs: per formattare le partizioni
+    # - fsck: per controllare il file system
+    # - rsync: per fare backup e ripristino di cartelle
+    if ! requisiti fdisk || ! requisiti mkfs || ! requisiti fsck || ! requisiti rsync; then
+        return
+    fi
 
+    while true; do
         clear
         printlines "" \
             "$(con_grassetto "====================================")" \
@@ -55,7 +63,7 @@ function gestione_disco() {
             clear
             printlines "" \
                 "$(con_grassetto "====================================")" \
-                "$(con_grassetto "        VISUALIZZA PARTIZIONI")" \
+                "$(con_grassetto "        VISTA PARTIZIONI")" \
                 "$(con_grassetto "====================================")"
 
             registra_info "Visualizza dischi"
@@ -147,4 +155,3 @@ function gestione_disco() {
         read -rp "Premi INVIO per tornare indietro..."
     done
 }
-

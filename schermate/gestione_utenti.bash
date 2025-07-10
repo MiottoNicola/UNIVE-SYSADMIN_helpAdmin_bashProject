@@ -1,4 +1,14 @@
-function gestione_utenti(){
+function gestione_utenti() {
+    # PREREQUISITI:
+    # - useradd: per aggiungere utenti
+    # - usermod: per modificare utenti
+    # - chpasswd: per modificare password utenti
+    # - userdel: per eliminare utenti
+    # - chage: per modificare scadenze password e account
+    if ! requisiti useradd || ! requisiti usermod || ! requisiti chpasswd || ! requisiti userdel || ! requisiti chage; then
+        return
+    fi
+    
     while true; do
         clear
         printlines "" \
@@ -8,8 +18,8 @@ function gestione_utenti(){
             "1) Aggiungi utente" \
             "2) Modifica nome utente" \
             "3) Modifica password" \
-            "4) Modifica gruppo" \
-            "5) Modifica permessi" \
+            "4) Modifica gruppo principale" \
+            "5) Aggiungi utente a gruppo" \
             "6) Modifica scadenza password" \
             "7) Modifica scadenza account" \
             "8) Modifica stato account" \
@@ -21,17 +31,23 @@ function gestione_utenti(){
         read -rp "Seleziona un'opzione [1-10,q]: " user_choice
         case $user_choice in
         1 | aggiungi_utente)
-            clear 
+            clear
             printlines "" \
                 "$(con_grassetto "====================================")" \
                 "$(con_grassetto "        AGGIUNGI UTENTE")" \
                 "$(con_grassetto "====================================")"
 
             read -rp "Inserisci il nome del nuovo utente: " nome_utente
+            if id "$nome_utente" &>/dev/null; then
+                println "$(come_errore "Utente '$nome_utente' già esistente.")"
+                sleep 1
+                continue
+            fi
+
             sudo useradd "$nome_utente" && sudo passwd "$nome_utente"
             registra_info "Aggiungi utente $nome_utente"
             println "$(come_successo "Utente $nome_utente aggiunto con successo.")"
-            
+
             sleep 1
             printlines "$(con_grassetto "====================================")"
             ;;
@@ -41,11 +57,24 @@ function gestione_utenti(){
                 "$(con_grassetto "====================================")" \
                 "$(con_grassetto "        MODIFICA NOME UTENTE")" \
                 "$(con_grassetto "====================================")"
-            
+
             read -rp "Inserisci il nome dell'utente da modificare: " nome_utente
+            if ! id "$nome_utente" &>/dev/null; then
+                println "$(come_errore "Utente $nome_utente non trovato")"
+                sleep 1
+                continue
+            fi
+
             read -rp "Inserisci il nuovo nome per l'utente $nome_utente: " nuovo_nome_utente
+            if id "$nuovo_nome_utente" &>/dev/null; then
+                println "$(come_errore "Utente $nuovo_nome_utente già esistente")"
+                sleep 1
+                continue
+            fi
+
             sudo usermod -l "$nuovo_nome_utente" "$nome_utente"
             registra_info "Modifica utente $nome_utente in $nuovo_nome_utente"
+            print "$(come_info "Utente rinominato!")"
 
             sleep 1
             printlines "$(con_grassetto "====================================")"
@@ -58,10 +87,16 @@ function gestione_utenti(){
                 "$(con_grassetto "====================================")"
 
             read -rp "Inserisci il nome dell'utente di cui modificare la password: " nome_utente
+            if ! id "$nome_utente" &>/dev/null; then
+                println "$(come_errore "Utente non trovato")"
+                sleep 1
+                continue
+            fi
+
             read -rp "Inserisci la nuova password per l'utente $nome_utente: " password_utente
-            sudo chpasswd <<< "$nome_utente:$password_utente"
+            sudo chpasswd <<<"$nome_utente:$password_utente"
             registra_info "Modifica password utente $nome_utente"
-            
+
             sleep 1
             printlines "$(con_grassetto "====================================")"
             ;;
@@ -73,7 +108,19 @@ function gestione_utenti(){
                 "$(con_grassetto "====================================")"
 
             read -rp "Inserisci il nome dell'utente di cui modificare il gruppo: " nome_utente
+            if ! id "$nome_utente" &>/dev/null; then
+                println "$(come_errore "Utente non trovato")"
+                sleep 1
+                continue
+            fi
+
             read -rp "Inserisci il nuovo gruppo per l'utente $nome_utente: " nuovo_gruppo
+            if ! getent group "$nuovo_gruppo" &>/dev/null; then
+                println "$(come_errore "Gruppo non trovato")"
+                sleep 1
+                continue
+            fi
+
             sudo usermod -g "$nuovo_gruppo" "$nome_utente"
             registra_info "Modifica gruppo utente $nome_utente in $nuovo_gruppo"
 
@@ -103,9 +150,21 @@ function gestione_utenti(){
                 "$(con_grassetto "====================================")"
 
             read -rp "Inserisci il nome dell'utente di cui modificare la scadenza della password: " nome_utente
-            read -rp "Inserisci la nuova scadenza della password per l'utente $nome_utente (in giorni): " scadenza_password
-            sudo chage -M "$scadenza_password" "$nome_utente"
-            registra_info "Modifica scadenza password utente $nome_utente in $scadenza_password giorni"
+            if ! id "$nome_utente" &>/dev/null; then
+                println "$(come_errore "Utente non trovato")"
+                sleep 1
+                continue
+            fi
+
+            read -rp "Numero giorni di validità residui prima della scadenza: " n_giorni
+            if ! [[ "$n_giorni" =~ ^[0-9]+$ ]]; then
+                println "$(come_errore "Inserire un numero valido.")"
+                sleep 1
+                continue
+            fi
+
+            sudo chage -M "$n_giorni" "$nome_utente"
+            registra_info "Modifica scadenza password utente $nome_utente in $n_giorni giorni"
 
             sleep 1
             printlines "$(con_grassetto "====================================")"
@@ -118,10 +177,22 @@ function gestione_utenti(){
                 "$(con_grassetto "====================================")"
 
             read -rp "Inserisci il nome dell'utente di cui modificare la scadenza dell'account: " nome_utente
-            read -rp "Inserisci la nuova scadenza dell'account per l'utente $nome_utente (in giorni): " scadenza_account
-            data_scadenza=$(date -d "+$scadenza_account days" +"%Y-%m-%d")
+            if ! id "$nome_utente" &>/dev/null; then
+                println "$(come_errore "Utente non trovato")"
+                sleep 1
+                continue
+            fi
+
+            read -rp "Numero giorni di validità residui prima della scadenza: " n_giorni
+            if ! [[ "$n_giorni" =~ ^[0-9]+$ ]]; then
+                println "$(come_errore "Inserire un numero valido.")"
+                sleep 1
+                continue
+            fi
+
+            data_scadenza=$(date -d "+$n_giorni days" +"%Y-%m-%d")
             sudo chage -E "$data_scadenza" "$nome_utente"
-            registra_info "Modifica scadenza account utente $nome_utente in $scadenza_account giorni (fino al $data_scadenza)"
+            registra_info "Modifica scadenza account utente $nome_utente in $n_giorni giorni (fino al $data_scadenza)"
 
             sleep 1
             printlines "$(con_grassetto "====================================")"
@@ -134,6 +205,13 @@ function gestione_utenti(){
                 "$(con_grassetto "====================================")"
 
             while true; do
+                read -rp "Utente da bloccare/sbloccare: " nome_utente
+                if ! id "$nome_utente" &>/dev/null; then
+                    println "$(come_errore "Utente non trovato")"
+                    sleep 1
+                    continue
+                fi
+
                 read -rp "Inserisci il nuovo stato dell'account per l'utente $nome_utente (attivo/inattivo): " stato_account
                 if [[ $stato_account == "attivo" ]]; then
                     sudo usermod -U "$nome_utente"
@@ -145,7 +223,7 @@ function gestione_utenti(){
                     println "$(come_errore "Input non valido. Inserisci 'attivo' o 'inattivo'.")"
                 fi
             done
-            registra_info "Modifica stato account utente $nome_utente in $stato_account"
+
             registra_info "Modifica stato account utente $nome_utente in $stato_account"
 
             sleep 1
@@ -158,9 +236,16 @@ function gestione_utenti(){
                 "$(con_grassetto "        ELIMINA UTENTE")" \
                 "$(con_grassetto "====================================")"
             println "$(come_avviso "Attenzione: questa operazione richiede i privilegi di root.")"
-                sudo userdel -r "$nome_utente"
-                registra_info "Elimina utente $nome_utente (con home directory)"
-                println "$(come_successo "Utente $nome_utente e la sua home directory sono stati eliminati con successo.")"
+            read -rp "Utente da bloccare/sbloccare: " nome_utente
+            if ! id "$nome_utente" &>/dev/null; then
+                println "$(come_errore "Utente non trovato")"
+                sleep 1
+                continue
+            fi
+
+            sudo userdel -r "$nome_utente"
+            registra_info "Elimina utente $nome_utente (con home directory)"
+            println "$(come_successo "Utente $nome_utente e la sua home directory sono stati eliminati con successo.")"
             read -rp "Sei sicuro di voler eliminare l'utente $nome_utente? [y/N]: " conferma
 
             if [[ $conferma == [yY] ]]; then
@@ -188,12 +273,11 @@ function gestione_utenti(){
             printlines "$(con_grassetto "====================================")"
             ;;
         q | Q)
-            schermata_principale
+            break
             ;;
         *)
             println "$(come_errore "\nOpzione non valida")"
             sleep .5
-            gestione_utenti
             ;;
         esac
         read -rp "Premi INVIO per tornare indietro..."
