@@ -5,7 +5,7 @@ Tutte le modifiche notevoli a questo progetto saranno documentate in questo file
 Il formato è basato su [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.0] - 2025-07-10
+## [1.1.0](https://github.com/MiottoNicola/UNIVE-SYSADMIN_helpAdmin_bashProject/releases/tag/v1.0.0) - 2025-07-15
 
 ### Aggiunto
 - 🛠️ Script di automazione per operazioni e configurazioni di sistema
