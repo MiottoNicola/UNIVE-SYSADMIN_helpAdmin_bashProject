@@ -1,6 +1,6 @@
-###### _Università Ca' Foscari - Venezia (2024/2025)_
+###### Laboratorio di Amministrazione di Sistema - Università Ca' Foscari Venezia
 
-# **Laboratorio ed Amministrazione di sistema**
+# **Laboratorio di Amministrazione di sistema**
 
 **Autori**: [Diego Marigo](https://github.com/Diego-Marigo),
 [Nicola Miotto](https://github.com/MiottoNicola)
